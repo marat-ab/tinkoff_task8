@@ -67,6 +67,8 @@ class Handler : IHandler
             {
                 addresses.Clear();
                 addresses.AddRange(rejectedAddresses);
+
+                await Task.Delay(Timeout, cancellationToken);
             }
             else
             {
