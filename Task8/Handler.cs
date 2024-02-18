@@ -29,7 +29,7 @@ class Handler : IHandler
         _logger = logger;
     }
 
-    private Address[] GetAddressForResendData(Address[] addresses, Payload payload, CancellationToken token)
+    private List<Address> GetAddressForResendData(Address[] addresses, Payload payload, CancellationToken token)
     {
         var tasks = new Task<SendResult>[addresses.Length];
 
@@ -39,17 +39,24 @@ class Handler : IHandler
             tasks[i] = task;
         }
 
-        Task.WaitAll(tasks, token);
-
-        var result = new List<Address>(addresses.Length);
-
-        for(int i = 0; i < addresses.Length; i++)
+        try
         {
-            if (tasks[i].IsCompleted && tasks[i].Result == SendResult.Rejected)
-                result.Add(addresses[i]);
-        }
+            Task.WaitAll(tasks, token);
 
-        return result.ToArray();
+            var result = new List<Address>(addresses.Length);
+
+            for (int i = 0; i < addresses.Length; i++)
+            {
+                if (tasks[i].IsCompleted && tasks[i].Result == SendResult.Rejected)
+                    result.Add(addresses[i]);
+            }
+
+            return result;
+        }
+        catch(OperationCanceledException) 
+        {
+            return new();
+        }
     }
 
     public async Task PerformOperation(CancellationToken cancellationToken)
@@ -63,7 +70,7 @@ class Handler : IHandler
         {
             var rejectedAddresses = GetAddressForResendData(addresses.ToArray(), data.Payload, cancellationToken); 
 
-            if(rejectedAddresses.Length > 0)
+            if(rejectedAddresses.Count > 0)
             {
                 addresses.Clear();
                 addresses.AddRange(rejectedAddresses);
